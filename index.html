@@ -1112,6 +1112,7 @@ function openEditModal() {
   const s = detailSkill;
   document.querySelector('#modalOverlay .modal-head h3').textContent = '스킬 수정';
   document.querySelector('#modalOverlay .btn-submit').textContent = '수정 저장';
+  clearUpload();
   document.getElementById('fTitle').value = s.title;
   const sf = document.getElementById('fSlug');
   sf.value = s.slug; sf._touched = true;
@@ -1121,7 +1122,6 @@ function openEditModal() {
   document.getElementById('fAuthor').value = s.author;
   document.getElementById('fType').value = s.type;
   document.getElementById('fCategory').value = s.col;
-  clearUpload();
   closeDetail();
   document.getElementById('modalOverlay').classList.add('show');
 }
