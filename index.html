@@ -70,8 +70,7 @@
 
     /* ── Header ───────────────────────────────── */
     header {
-      background: var(--sbux-white);
-      box-shadow: var(--shadow-nav);
+      background: var(--sbux-house);
       padding: 0 40px;
       height: 72px;
       display: flex;
@@ -86,31 +85,31 @@
       font-family: var(--font-display);
       font-size: 20px;
       font-weight: 600;
-      color: var(--sbux-green);
+      color: var(--sbux-text-white);
       letter-spacing: -0.016px;
       line-height: 1;
     }
-    .logo-wordmark span { color: var(--sbux-accent); }
-    .logo-divider { width: 1px; height: 16px; background: var(--sbux-input-border); }
-    .logo-sub { font-size: 13px; font-weight: 400; color: var(--sbux-text-soft); }
+    .logo-wordmark span { color: var(--sbux-light); }
+    .logo-divider { width: 1px; height: 16px; background: rgba(255,255,255,0.20); }
+    .logo-sub { font-size: 13px; font-weight: 400; color: var(--sbux-text-muted); }
     .header-nav { display: flex; align-items: center; gap: 20px; }
     .nav-link {
-      font-size: 14px; font-weight: 600; color: var(--sbux-text);
+      font-size: 14px; font-weight: 600; color: var(--sbux-text-white);
       text-decoration: none; cursor: pointer; letter-spacing: -0.01em;
     }
-    .nav-link:hover { color: var(--sbux-accent); }
+    .nav-link:hover { color: var(--sbux-light); }
 
     /* theme toggle */
     .btn-theme {
       width: 36px; height: 36px;
       border-radius: 50%;
-      border: 1px solid var(--sbux-input-border);
-      background: var(--sbux-white);
+      border: 1px solid rgba(255,255,255,0.30);
+      background: transparent;
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; font-size: 16px;
       transition: all 0.2s ease;
     }
-    .btn-theme:hover { border-color: var(--sbux-accent); background: var(--sbux-canvas); }
+    .btn-theme:hover { border-color: var(--sbux-light); background: rgba(255,255,255,0.10); }
     .btn-theme:active { transform: scale(0.95); }
 
     /* dark mode — warm espresso darks */
