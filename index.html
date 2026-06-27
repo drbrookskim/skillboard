@@ -842,7 +842,7 @@
     </div>
     <div class="form-group">
       <label>작성자</label>
-      <input type="text" id="fAuthor" placeholder="홍길동" />
+      <input type="text" id="fAuthor" placeholder="작성자를 입력하세요" />
     </div>
 
     <div class="modal-actions">
@@ -895,6 +895,7 @@
       <button class="btn btn-delete" onclick="openDeleteConfirm()">삭제</button>
       <div style="flex:1"></div>
       <button class="btn btn-cancel" onclick="closeDetail()">닫기</button>
+      <button class="btn btn-cancel" onclick="openEditModal()" style="border-color:var(--sbux-accent);color:var(--sbux-accent)">수정</button>
       <button class="btn btn-submit" id="dUseBtn">이 스킬 사용</button>
     </div>
   </div>
@@ -986,6 +987,7 @@ let nextId = Math.max(...skills.map(s => s.id), 0) + 1;
 let activeFilter = 'all';
 let currentQuery = '';
 let detailSkill = null;
+let editingSkillId = null;
 const DELETE_PASSWORD = 'skill1234';
 
 /* ─── Recent searches ─────────────────────────── */
@@ -1097,11 +1099,36 @@ function renderBoard() {
 
 /* ─── Register Modal ──────────────────────────── */
 function openModal(col) {
+  editingSkillId = null;
+  document.querySelector('#modalOverlay .modal-head h3').textContent = '새 스킬 등록';
+  document.querySelector('#modalOverlay .btn-submit').textContent = '등록하기';
   if (col !== undefined) document.getElementById('fCategory').value = col;
   document.getElementById('modalOverlay').classList.add('show');
 }
 function openModalCol(col) { openModal(col); }
-function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); }
+function openEditModal() {
+  if (!detailSkill) return;
+  editingSkillId = detailSkill.id;
+  const s = detailSkill;
+  document.querySelector('#modalOverlay .modal-head h3').textContent = '스킬 수정';
+  document.querySelector('#modalOverlay .btn-submit').textContent = '수정 저장';
+  document.getElementById('fTitle').value = s.title;
+  const sf = document.getElementById('fSlug');
+  sf.value = s.slug; sf._touched = true;
+  document.getElementById('fDesc').value = s.desc;
+  document.getElementById('fTrigger').value = s.trigger;
+  document.getElementById('fDuration').value = s.duration;
+  document.getElementById('fAuthor').value = s.author;
+  document.getElementById('fType').value = s.type;
+  document.getElementById('fCategory').value = s.col;
+  clearUpload();
+  closeDetail();
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+  editingSkillId = null;
+}
 function handleOverlayClick(e) { if (e.target === e.currentTarget) closeModal(); }
 
 document.getElementById('fTitle').addEventListener('input', function() {
@@ -1181,15 +1208,20 @@ function submitSkill() {
   const title = document.getElementById('fTitle').value.trim();
   const slug = document.getElementById('fSlug').value.trim();
   if (!title || !slug) { alert('스킬 이름과 슬러그를 입력하세요.'); return; }
-  skills.push({
-    id: nextId++, title, slug,
+  const data = {
+    title, slug,
     desc: document.getElementById('fDesc').value.trim() || '설명 없음',
     trigger: document.getElementById('fTrigger').value.trim() || '명시적 호출 시',
     type: document.getElementById('fType').value,
     duration: document.getElementById('fDuration').value.trim() || '-',
     author: document.getElementById('fAuthor').value.trim() || '익명',
     col: parseInt(document.getElementById('fCategory').value),
-  });
+  };
+  if (editingSkillId !== null) {
+    skills = skills.map(s => s.id === editingSkillId ? { ...s, ...data } : s);
+  } else {
+    skills.push({ id: nextId++, ...data });
+  }
   ['fTitle','fSlug','fDesc','fTrigger','fDuration','fAuthor'].forEach(id => {
     const el = document.getElementById(id);
     el.value = '';
