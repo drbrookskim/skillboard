@@ -937,7 +937,7 @@ const AVATAR_BG = [
   ['#dcfce7','#15803d'], ['#fef9c3','#a16207'],
 ];
 
-let skills = [
+const DEFAULT_SKILLS = [
   { id:1, title:'Systematic Debugging', slug:'systematic-debugging',
     desc:'버그를 체계적으로 추적·수정하는 프로세스. 증상 파악 → 가설 → 검증 → 수정 순서로 진행.',
     trigger:'사용자가 "버그", "에러", "디버그", "왜 안돼"를 언급하거나 오류 스택트레이스를 공유할 때',
@@ -971,7 +971,18 @@ let skills = [
     trigger:'애널리스트나 PM이 섹터·테마 프라이머를 요청할 때',
     type:'flexible', duration:'15-40m', author:'Plugin', col:2 },
 ];
-let nextId = 9;
+
+function loadSkills() {
+  const saved = localStorage.getItem('csb_skills');
+  if (saved) {
+    try { return JSON.parse(saved); } catch(e) {}
+  }
+  return DEFAULT_SKILLS;
+}
+function saveSkills() { localStorage.setItem('csb_skills', JSON.stringify(skills)); }
+
+let skills = loadSkills();
+let nextId = Math.max(...skills.map(s => s.id), 0) + 1;
 let activeFilter = 'all';
 let currentQuery = '';
 let detailSkill = null;
@@ -1184,7 +1195,7 @@ function submitSkill() {
     el.value = '';
     if (id === 'fSlug') el._touched = false;
   });
-  clearUpload(); closeModal(); renderBoard();
+  saveSkills(); clearUpload(); closeModal(); renderBoard();
 }
 
 /* ─── Detail Modal ────────────────────────────── */
@@ -1294,7 +1305,7 @@ function confirmDelete() {
     return;
   }
   skills = skills.filter(s => s.id !== detailSkill.id);
-  closeDeleteConfirm(); closeDetail(); renderBoard();
+  saveSkills(); closeDeleteConfirm(); closeDetail(); renderBoard();
 }
 
 /* ─── Theme ───────────────────────────────────── */
