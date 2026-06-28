@@ -931,17 +931,17 @@
 <div class="modal-overlay" id="patOverlay" onclick="handlePatOverlay(event)">
   <div class="modal" style="max-width:420px">
     <div class="modal-head">
-      <h3>GitHub PAT 입력</h3>
+      <h3>관리자 로그인</h3>
       <span class="modal-close" onclick="closePatModal()">✕</span>
     </div>
     <p style="font-size:14px;color:var(--sbux-text-soft);margin:0 0 16px">
       관리자 모드로 진입합니다.<br>
-      GitHub Personal Access Token (gist 권한)을 입력하세요.<br>
-      토큰은 현재 세션에만 보관되며 새로고침 시 초기화됩니다.
+      관리자 비밀번호를 입력하세요.<br>
+      비밀번호는 메모리에만 보관되며 새로고침 시 자동 초기화됩니다.
     </p>
     <div class="form-group">
-      <label>Personal Access Token</label>
-      <input type="password" id="patInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+      <label>관리자 비밀번호</label>
+      <input type="password" id="patInput" placeholder="비밀번호 입력"
              onkeydown="if(event.key==='Enter')savePat()" />
       <div id="patError" style="display:none;margin-top:5px;font-size:12px;color:#dc2626">토큰을 입력하세요.</div>
     </div>
@@ -989,17 +989,15 @@ const AVATAR_BG = [
   ['#dcfce7','#15803d'], ['#fef9c3','#a16207'],
 ];
 
-/* ─── Gist config ────────────────────────────── */
-const GIST_ID   = '37e6460c808c94c722c9307b14e1d1a8';
-const GIST_FILE = 'skills.json';
-const GIST_API  = `https://api.github.com/gists/${GIST_ID}`;
-const GIST_RAW  = `https://gist.githubusercontent.com/drbrookskim/${GIST_ID}/raw/${GIST_FILE}`;
+/* ─── Worker API config ──────────────────────── */
+const WORKER_URL = 'https://nelcome-skillboard-api.drbrooks-kim.workers.dev';
 
-function getPat() { return sessionStorage.getItem('csb_pat') || ''; }
+/* 관리자 비밀번호 — 메모리 변수에만 보관 (소스 노출 없음) */
+let _adminPassword = '';
 
 async function loadSkillsFromGist() {
   try {
-    const res = await fetch(GIST_RAW + '?t=' + Date.now());
+    const res = await fetch(`${WORKER_URL}/skills?t=${Date.now()}`);
     if (!res.ok) throw new Error();
     return await res.json();
   } catch(e) {
@@ -1007,21 +1005,21 @@ async function loadSkillsFromGist() {
   }
 }
 
-async function saveSkillsToGist(onNoPat) {
-  const pat = getPat();
-  if (!pat) { openPatModal(() => { enterAdmin(); if (onNoPat) onNoPat(); }); return false; }
-  const body = JSON.stringify({
-    files: { [GIST_FILE]: { content: JSON.stringify(skills, null, 2) } }
-  });
-  const res = await fetch(GIST_API, {
+async function saveSkillsToGist(onNoPassword) {
+  if (!_adminPassword) { openPatModal(onNoPassword); return false; }
+  const res = await fetch(`${WORKER_URL}/skills`, {
     method: 'PATCH',
-    headers: { Authorization: `token ${pat}`, 'Content-Type': 'application/json' },
-    body
+    headers: {
+      'Content-Type': 'application/json',
+      'x-admin-password': _adminPassword,
+    },
+    body: JSON.stringify(skills),
   });
   if (res.status === 401) {
-    sessionStorage.removeItem('csb_pat');
-    alert('PAT가 유효하지 않습니다. 다시 입력하세요.');
-    openPatModal();
+    _adminPassword = '';
+    document.body.classList.remove('admin');
+    alert('비밀번호가 올바르지 않습니다. 다시 입력하세요.');
+    openPatModal(onNoPassword);
     return false;
   }
   return res.ok;
@@ -1033,18 +1031,16 @@ let activeFilter = 'all';
 let currentQuery = '';
 let detailSkill = null;
 let editingSkillId = null;
-const DELETE_PASSWORD = 'skill1234';
-
 /* ─── Admin mode ──────────────────────────────── */
 function isAdmin() { return document.body.classList.contains('admin'); }
 function enterAdmin() { document.body.classList.add('admin'); renderBoard(); }
 function logoutAdmin() {
-  sessionStorage.removeItem('csb_pat');
+  _adminPassword = '';
   document.body.classList.remove('admin');
   renderBoard();
 }
 
-/* ─── PAT Modal ───────────────────────────────── */
+/* ─── Admin password modal ────────────────────── */
 let _patCallback = null;
 function openPatModal(cb) {
   _patCallback = cb || null;
@@ -1057,17 +1053,23 @@ function closePatModal() { document.getElementById('patOverlay').classList.remov
 function handlePatOverlay(e) { if (e.target === e.currentTarget) closePatModal(); }
 async function savePat() {
   const val = document.getElementById('patInput').value.trim();
-  if (!val) { document.getElementById('patError').style.display = 'block'; return; }
-  /* PAT 유효성 확인 */
-  const res = await fetch(GIST_API, {
-    headers: { Authorization: `token ${val}` }
-  });
-  if (!res.ok) {
-    document.getElementById('patError').textContent = 'PAT가 유효하지 않습니다. 다시 확인하세요.';
+  if (!val) {
+    document.getElementById('patError').textContent = '비밀번호를 입력하세요.';
     document.getElementById('patError').style.display = 'block';
     return;
   }
-  sessionStorage.setItem('csb_pat', val);
+  /* Worker에 비밀번호 유효성 검증 (빈 PATCH로 테스트) */
+  const res = await fetch(`${WORKER_URL}/skills`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'x-admin-password': val },
+    body: JSON.stringify(skills),
+  });
+  if (res.status === 401) {
+    document.getElementById('patError').textContent = '비밀번호가 올바르지 않습니다.';
+    document.getElementById('patError').style.display = 'block';
+    return;
+  }
+  _adminPassword = val;
   closePatModal();
   if (_patCallback) { _patCallback(); _patCallback = null; }
   else { enterAdmin(); }
