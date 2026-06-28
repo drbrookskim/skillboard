@@ -839,6 +839,7 @@
           <option value="0">워크플로우</option>
           <option value="1">개발 / 엔지니어링</option>
           <option value="2">분석 / 기획</option>
+          <option value="3">검색 및 수집</option>
         </select>
       </div>
     </div>
@@ -982,8 +983,8 @@
 
 <script>
 /* ─── Data ───────────────────────────────────── */
-const COL_NAMES = ['워크플로우', '개발 / 엔지니어링', '분석 / 기획'];
-const COL_ACCENT = ['#5d2a1a', '#1d4ed8', '#6b21a8'];
+const COL_NAMES = ['워크플로우', '개발 / 엔지니어링', '분석 / 기획', '검색 및 수집'];
+const COL_ACCENT = ['#5d2a1a', '#1d4ed8', '#6b21a8', '#065f46'];
 const AVATAR_BG = [
   ['#fbe1d1','#5d2a1a'], ['#d3e3fc','#1d4ed8'],
   ['#dcfce7','#15803d'], ['#fef9c3','#a16207'],
@@ -1156,9 +1157,12 @@ function renderBoard() {
   const empty = document.getElementById('emptyState');
   if (!filtered.length) { cols.innerHTML = ''; empty.classList.add('show'); return; }
   empty.classList.remove('show');
-  const byCol = [[],[],[]];
-  filtered.forEach(s => byCol[s.col].push(s));
-  cols.innerHTML = COL_NAMES.map((name, ci) => `
+  const byCol = COL_NAMES.map(() => []);
+  filtered.forEach(s => { if (byCol[s.col]) byCol[s.col].push(s); });
+  cols.innerHTML = COL_NAMES.map((name, ci) => {
+    const hasSkills = byCol[ci].length > 0;
+    if (!hasSkills && !isAdmin()) return '';
+    return `
     <div class="column">
       <div class="col-header">
         <span class="col-title">${name}</span>
@@ -1182,7 +1186,8 @@ function renderBoard() {
         </div>`}).join('')}
       ${!q && isAdmin() ? `<div class="add-new" onclick="openModalCol(${ci})">＋ 새 스킬 추가</div>` : ''}
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 /* ─── Register Modal ──────────────────────────── */
