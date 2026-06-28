@@ -901,6 +901,31 @@
   </div>
 </div>
 
+<!-- PAT modal -->
+<div class="modal-overlay" id="patOverlay" onclick="handlePatOverlay(event)">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head">
+      <h3>GitHub PAT 입력</h3>
+      <span class="modal-close" onclick="closePatModal()">✕</span>
+    </div>
+    <p style="font-size:14px;color:var(--sbux-text-soft);margin:0 0 16px">
+      스킬 등록·수정·삭제는 관리자 인증이 필요합니다.<br>
+      GitHub Personal Access Token (gist 쓰기 권한)을 입력하세요.<br>
+      토큰은 이 세션에만 보관되며 새로고침 시 사라집니다.
+    </p>
+    <div class="form-group">
+      <label>Personal Access Token</label>
+      <input type="password" id="patInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+             onkeydown="if(event.key==='Enter')savePat()" />
+      <div id="patError" style="display:none;margin-top:5px;font-size:12px;color:#dc2626">토큰을 입력하세요.</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-cancel" onclick="closePatModal()">취소</button>
+      <button class="btn btn-submit" onclick="savePat()">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete confirm modal -->
 <div class="modal-overlay" id="deleteOverlay" onclick="handleDeleteOverlay(event)">
   <div class="modal" style="max-width:380px">
@@ -938,57 +963,70 @@ const AVATAR_BG = [
   ['#dcfce7','#15803d'], ['#fef9c3','#a16207'],
 ];
 
-const DEFAULT_SKILLS = [
-  { id:1, title:'Systematic Debugging', slug:'systematic-debugging',
-    desc:'버그를 체계적으로 추적·수정하는 프로세스. 증상 파악 → 가설 → 검증 → 수정 순서로 진행.',
-    trigger:'사용자가 "버그", "에러", "디버그", "왜 안돼"를 언급하거나 오류 스택트레이스를 공유할 때',
-    type:'rigid', duration:'5-15m', author:'Anthropic', col:1 },
-  { id:2, title:'Test-Driven Development', slug:'test-driven-development',
-    desc:'코드 작성 전 테스트를 먼저 작성하는 TDD 워크플로우. Red→Green→Refactor 사이클 적용.',
-    trigger:'새 기능 구현을 시작하거나 "TDD로 해줘", "테스트부터 작성해" 요청 시',
-    type:'rigid', duration:'전체 작업', author:'Anthropic', col:1 },
-  { id:3, title:'Writing Plans', slug:'writing-plans',
-    desc:'복잡한 구현 작업 전 단계별 실행 계획을 수립하고 사용자 승인을 받는 스킬.',
-    trigger:'여러 파일을 수정하거나 새 기능 설계가 필요한 비자명한 작업 시작 시',
-    type:'flexible', duration:'3-8m', author:'Anthropic', col:0 },
-  { id:4, title:'Brainstorming', slug:'brainstorming',
-    desc:'구현에 들어가기 전 아이디어를 다각도로 탐색하고 최선의 접근법을 선택하는 스킬.',
-    trigger:'플랜 모드 진입 전, 또는 "어떻게 접근할까?", "방법이 뭐가 있을까?" 류의 탐색 질문 시',
-    type:'flexible', duration:'3-10m', author:'Anthropic', col:0 },
-  { id:5, title:'Code Review', slug:'code-review',
-    desc:'변경된 코드의 정확성·재사용성·효율성을 리뷰. low/medium/high/ultra 노력 수준 선택 가능.',
-    trigger:'사용자가 /code-review 또는 "코드 리뷰해줘", "PR 리뷰" 등을 요청할 때',
-    type:'flexible', duration:'5-30m', author:'Anthropic', col:1 },
-  { id:6, title:'Finishing a Dev Branch', slug:'finishing-a-dev-branch',
-    desc:'개발 완료 후 PR 제출 전 체크리스트: 린팅, 테스트, 커밋 메시지, PR 설명 작성 등.',
-    trigger:'작업이 완료되어 브랜치를 마무리하고 PR을 올릴 준비가 됐을 때',
-    type:'flexible', duration:'5-10m', author:'Anthropic', col:0 },
-  { id:7, title:'Verification Before Completion', slug:'verification-before-completion',
-    desc:'작업 완료 보고 전 실제로 기능이 올바르게 동작하는지 검증하는 스킬.',
-    trigger:'구현 작업이 끝나고 사용자에게 완료를 보고하기 직전',
-    type:'rigid', duration:'2-5m', author:'Anthropic', col:0 },
-  { id:8, title:'Market Researcher', slug:'market-researcher',
-    desc:'섹터·테마 시장 조사 — 산업 개요, 경쟁 구도, 트레이딩 콤프, 테마 아이디어 리스트 작성.',
-    trigger:'애널리스트나 PM이 섹터·테마 프라이머를 요청할 때',
-    type:'flexible', duration:'15-40m', author:'Plugin', col:2 },
-];
+/* ─── Gist config ────────────────────────────── */
+const GIST_ID   = '37e6460c808c94c722c9307b14e1d1a8';
+const GIST_FILE = 'skills.json';
+const GIST_API  = `https://api.github.com/gists/${GIST_ID}`;
+const GIST_RAW  = `https://gist.githubusercontent.com/drbrookskim/${GIST_ID}/raw/${GIST_FILE}`;
 
-function loadSkills() {
-  const saved = localStorage.getItem('csb_skills');
-  if (saved) {
-    try { return JSON.parse(saved); } catch(e) {}
+function getPat() { return sessionStorage.getItem('csb_pat') || ''; }
+
+async function loadSkillsFromGist() {
+  try {
+    const res = await fetch(GIST_RAW + '?t=' + Date.now());
+    if (!res.ok) throw new Error();
+    return await res.json();
+  } catch(e) {
+    return [];
   }
-  return DEFAULT_SKILLS;
 }
-function saveSkills() { localStorage.setItem('csb_skills', JSON.stringify(skills)); }
 
-let skills = loadSkills();
-let nextId = Math.max(...skills.map(s => s.id), 0) + 1;
+async function saveSkillsToGist(onNoPat) {
+  const pat = getPat();
+  if (!pat) { openPatModal(onNoPat); return false; }
+  const body = JSON.stringify({
+    files: { [GIST_FILE]: { content: JSON.stringify(skills, null, 2) } }
+  });
+  const res = await fetch(GIST_API, {
+    method: 'PATCH',
+    headers: { Authorization: `token ${pat}`, 'Content-Type': 'application/json' },
+    body
+  });
+  if (res.status === 401) {
+    sessionStorage.removeItem('csb_pat');
+    alert('PAT가 유효하지 않습니다. 다시 입력하세요.');
+    openPatModal();
+    return false;
+  }
+  return res.ok;
+}
+
+let skills = [];
+let nextId = 1;
 let activeFilter = 'all';
 let currentQuery = '';
 let detailSkill = null;
 let editingSkillId = null;
 const DELETE_PASSWORD = 'skill1234';
+
+/* ─── PAT Modal ───────────────────────────────── */
+let _patCallback = null;
+function openPatModal(cb) {
+  _patCallback = cb || null;
+  document.getElementById('patInput').value = '';
+  document.getElementById('patError').style.display = 'none';
+  document.getElementById('patOverlay').classList.add('show');
+  setTimeout(() => document.getElementById('patInput').focus(), 100);
+}
+function closePatModal() { document.getElementById('patOverlay').classList.remove('show'); }
+function handlePatOverlay(e) { if (e.target === e.currentTarget) closePatModal(); }
+function savePat() {
+  const val = document.getElementById('patInput').value.trim();
+  if (!val) { document.getElementById('patError').style.display = 'block'; return; }
+  sessionStorage.setItem('csb_pat', val);
+  closePatModal();
+  if (_patCallback) { _patCallback(); _patCallback = null; }
+}
 
 /* ─── Recent searches ─────────────────────────── */
 let recents = JSON.parse(localStorage.getItem('csb_recents') || '[]');
@@ -1227,7 +1265,9 @@ function submitSkill() {
     el.value = '';
     if (id === 'fSlug') el._touched = false;
   });
-  saveSkills(); clearUpload(); closeModal(); renderBoard();
+  clearUpload(); closeModal();
+  const doSave = () => saveSkillsToGist(doSave).then(ok => { if (ok) renderBoard(); });
+  doSave();
 }
 
 /* ─── Detail Modal ────────────────────────────── */
@@ -1337,7 +1377,9 @@ function confirmDelete() {
     return;
   }
   skills = skills.filter(s => s.id !== detailSkill.id);
-  saveSkills(); closeDeleteConfirm(); closeDetail(); renderBoard();
+  closeDeleteConfirm(); closeDetail();
+  const doSave = () => saveSkillsToGist(doSave).then(ok => { if (ok) renderBoard(); });
+  doSave();
 }
 
 /* ─── Theme ───────────────────────────────────── */
@@ -1355,7 +1397,11 @@ if (localStorage.getItem('csb_theme') === 'dark') {
 
 /* ─── Init ────────────────────────────────────── */
 renderRecentTags();
-renderBoard();
+(async () => {
+  skills = await loadSkillsFromGist();
+  nextId = Math.max(...skills.map(s => s.id), 0) + 1;
+  renderBoard();
+})();
 </script>
 </body>
 </html>
