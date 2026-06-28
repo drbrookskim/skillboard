@@ -1404,17 +1404,10 @@ async function downloadSkill() {
 function openDeleteConfirm() {
   if (!detailSkill) return;
   document.getElementById('deleteTargetName').textContent = detailSkill.title;
-  document.getElementById('deletePassword').value = '';
-  document.getElementById('deleteError').style.display = 'none';
   document.getElementById('deleteOverlay').classList.add('show');
-  setTimeout(() => document.getElementById('deletePassword').focus(), 100);
 }
 function closeDeleteConfirm() { document.getElementById('deleteOverlay').classList.remove('show'); }
 function handleDeleteOverlay(e) { if (e.target === e.currentTarget) closeDeleteConfirm(); }
-function togglePw() {
-  const input = document.getElementById('deletePassword');
-  input.type = input.type === 'password' ? 'text' : 'password';
-}
 function confirmDelete() {
   skills = skills.filter(s => s.id !== detailSkill.id);
   closeDeleteConfirm(); closeDetail();
