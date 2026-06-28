@@ -250,6 +250,30 @@
     .btn-register:hover { background: rgba(255,255,255,0.12); }
     .btn-register:active { transform: scale(0.95); }
 
+    /* Admin / guest mode visibility */
+    .admin-only { display: none !important; }
+    body.admin .admin-only { display: revert !important; }
+    body.admin .guest-only { display: none !important; }
+
+    /* Header admin buttons */
+    .btn-admin-login, .btn-admin-logout {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.30);
+      border-radius: 50px;
+      color: var(--sbux-text-muted);
+      font-family: var(--font-body);
+      font-size: 12px; font-weight: 500;
+      padding: 6px 14px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-admin-login:hover, .btn-admin-logout:hover {
+      background: rgba(255,255,255,0.10);
+      color: #fff;
+    }
+    .btn-admin-logout { display: none; }
+    body.admin .btn-admin-login { display: none; }
+    body.admin .btn-admin-logout { display: inline-flex; }
+
     /* recent tags — on dark hero bg */
     .recent-tags {
       display: flex; align-items: center; gap: 6px;
@@ -724,6 +748,8 @@
     <span class="logo-wordmark">NELCOME<span style="color:var(--sbux-light)">.md</span></span>
   </div>
   <nav class="header-nav">
+    <button class="btn-admin-login" id="adminLoginBtn" onclick="openPatModal()" title="관리자 로그인">관리자</button>
+    <button class="btn-admin-logout" id="adminLogoutBtn" onclick="logoutAdmin()" title="관리자 로그아웃">로그아웃</button>
     <button class="btn-theme" onclick="toggleTheme()" id="themeBtn" title="테마 변경">☀️</button>
   </nav>
 </header>
@@ -742,7 +768,7 @@
       <div class="recent-dropdown" id="recentDropdown"></div>
     </div>
     <button class="btn-search" onclick="doSearch()">검색</button>
-    <button class="btn-register" onclick="openModal()">+ 스킬 등록</button>
+    <button class="btn-register admin-only" onclick="openModal()">+ 스킬 등록</button>
   </div>
 
   <div class="recent-tags" id="recentTagsRow" style="display:none"></div>
@@ -892,10 +918,10 @@
     </div>
 
     <div class="modal-actions" style="margin-top:20px">
-      <button class="btn btn-delete" onclick="openDeleteConfirm()">삭제</button>
+      <button class="btn btn-delete admin-only" onclick="openDeleteConfirm()">삭제</button>
       <div style="flex:1"></div>
       <button class="btn btn-cancel" onclick="closeDetail()">닫기</button>
-      <button class="btn btn-cancel" onclick="openEditModal()" style="border-color:var(--sbux-accent);color:var(--sbux-accent)">수정</button>
+      <button class="btn btn-cancel admin-only" onclick="openEditModal()" style="border-color:var(--sbux-accent);color:var(--sbux-accent)">수정</button>
       <button class="btn btn-submit" id="dUseBtn">이 스킬 사용</button>
     </div>
   </div>
@@ -909,9 +935,9 @@
       <span class="modal-close" onclick="closePatModal()">✕</span>
     </div>
     <p style="font-size:14px;color:var(--sbux-text-soft);margin:0 0 16px">
-      스킬 등록·수정·삭제는 관리자 인증이 필요합니다.<br>
-      GitHub Personal Access Token (gist 쓰기 권한)을 입력하세요.<br>
-      토큰은 이 세션에만 보관되며 새로고침 시 사라집니다.
+      관리자 모드로 진입합니다.<br>
+      GitHub Personal Access Token (gist 권한)을 입력하세요.<br>
+      토큰은 현재 세션에만 보관되며 새로고침 시 초기화됩니다.
     </p>
     <div class="form-group">
       <label>Personal Access Token</label>
@@ -983,7 +1009,7 @@ async function loadSkillsFromGist() {
 
 async function saveSkillsToGist(onNoPat) {
   const pat = getPat();
-  if (!pat) { openPatModal(onNoPat); return false; }
+  if (!pat) { openPatModal(() => { enterAdmin(); if (onNoPat) onNoPat(); }); return false; }
   const body = JSON.stringify({
     files: { [GIST_FILE]: { content: JSON.stringify(skills, null, 2) } }
   });
@@ -1009,6 +1035,15 @@ let detailSkill = null;
 let editingSkillId = null;
 const DELETE_PASSWORD = 'skill1234';
 
+/* ─── Admin mode ──────────────────────────────── */
+function isAdmin() { return document.body.classList.contains('admin'); }
+function enterAdmin() { document.body.classList.add('admin'); renderBoard(); }
+function logoutAdmin() {
+  sessionStorage.removeItem('csb_pat');
+  document.body.classList.remove('admin');
+  renderBoard();
+}
+
 /* ─── PAT Modal ───────────────────────────────── */
 let _patCallback = null;
 function openPatModal(cb) {
@@ -1020,12 +1055,22 @@ function openPatModal(cb) {
 }
 function closePatModal() { document.getElementById('patOverlay').classList.remove('show'); }
 function handlePatOverlay(e) { if (e.target === e.currentTarget) closePatModal(); }
-function savePat() {
+async function savePat() {
   const val = document.getElementById('patInput').value.trim();
   if (!val) { document.getElementById('patError').style.display = 'block'; return; }
+  /* PAT 유효성 확인 */
+  const res = await fetch(GIST_API, {
+    headers: { Authorization: `token ${val}` }
+  });
+  if (!res.ok) {
+    document.getElementById('patError').textContent = 'PAT가 유효하지 않습니다. 다시 확인하세요.';
+    document.getElementById('patError').style.display = 'block';
+    return;
+  }
   sessionStorage.setItem('csb_pat', val);
   closePatModal();
   if (_patCallback) { _patCallback(); _patCallback = null; }
+  else { enterAdmin(); }
 }
 
 /* ─── Recent searches ─────────────────────────── */
@@ -1130,7 +1175,7 @@ function renderBoard() {
           </div>
           <div class="trigger-snippet">${hl(s.trigger.slice(0,60)+(s.trigger.length>60?'…':''), q)}</div>
         </div>`}).join('')}
-      ${!q ? `<div class="add-new" onclick="openModalCol(${ci})">＋ 새 스킬 추가</div>` : ''}
+      ${!q && isAdmin() ? `<div class="add-new" onclick="openModalCol(${ci})">＋ 새 스킬 추가</div>` : ''}
     </div>
   `).join('');
 }
