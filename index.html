@@ -993,7 +993,10 @@ const AVATAR_BG = [
 const WORKER_URL = 'https://nelcome-skillboard-api.drbrooks-kim.workers.dev';
 
 /* 관리자 비밀번호 — 메모리 변수에만 보관 (소스 노출 없음) */
-let _adminPassword = '';
+const SESSION_ADMIN_KEY = 'csb_admin';
+function getAdminPassword() { return sessionStorage.getItem(SESSION_ADMIN_KEY) || ''; }
+function setAdminPassword(pw) { sessionStorage.setItem(SESSION_ADMIN_KEY, pw); }
+function clearAdminPassword() { sessionStorage.removeItem(SESSION_ADMIN_KEY); }
 
 async function loadSkillsFromGist() {
   try {
@@ -1006,17 +1009,17 @@ async function loadSkillsFromGist() {
 }
 
 async function saveSkillsToGist(onNoPassword) {
-  if (!_adminPassword) { openPatModal(onNoPassword); return false; }
+  if (!getAdminPassword()) { openPatModal(onNoPassword); return false; }
   const res = await fetch(`${WORKER_URL}/skills`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'x-admin-password': _adminPassword,
+      'x-admin-password': getAdminPassword(),
     },
     body: JSON.stringify(skills),
   });
   if (res.status === 401) {
-    _adminPassword = '';
+    clearAdminPassword();
     document.body.classList.remove('admin');
     alert('비밀번호가 올바르지 않습니다. 다시 입력하세요.');
     openPatModal(onNoPassword);
@@ -1035,7 +1038,7 @@ let editingSkillId = null;
 function isAdmin() { return document.body.classList.contains('admin'); }
 function enterAdmin() { document.body.classList.add('admin'); renderBoard(); }
 function logoutAdmin() {
-  _adminPassword = '';
+  clearAdminPassword();
   document.body.classList.remove('admin');
   renderBoard();
 }
@@ -1069,7 +1072,7 @@ async function savePat() {
     document.getElementById('patError').style.display = 'block';
     return;
   }
-  _adminPassword = val;
+  setAdminPassword(val);
   closePatModal();
   if (_patCallback) { _patCallback(); _patCallback = null; }
   else { enterAdmin(); }
@@ -1447,6 +1450,8 @@ renderRecentTags();
 (async () => {
   skills = await loadSkillsFromGist();
   nextId = Math.max(...skills.map(s => s.id), 0) + 1;
+  /* sessionStorage에 비밀번호가 남아있으면 관리자 모드 복원 */
+  if (getAdminPassword()) document.body.classList.add('admin');
   renderBoard();
 })();
 </script>
