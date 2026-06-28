@@ -825,47 +825,36 @@
     <div class="form-section">기본 정보</div>
     <div class="form-group">
       <label>스킬 이름 *</label>
-      <input type="text" id="fTitle" placeholder="예: systematic-debugging" />
+      <input type="text" id="fTitle" placeholder="예: Systematic Debugging" />
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>슬러그 (slug) *</label>
-        <input type="text" id="fSlug" class="mono-input" placeholder="my-skill" />
-        <div class="hint">영문 소문자, 하이픈만 사용</div>
-      </div>
-      <div class="form-group">
-        <label>카테고리</label>
-        <select id="fCategory">
-          <option value="0">워크플로우</option>
-          <option value="1">개발 / 엔지니어링</option>
-          <option value="2">분석 / 기획</option>
-          <option value="3">검색 및 수집</option>
-        </select>
-      </div>
+    <div class="form-group">
+      <label>카테고리</label>
+      <select id="fCategory">
+        <option value="0">워크플로우</option>
+        <option value="1">개발 / 엔지니어링</option>
+        <option value="2">분석 / 기획</option>
+        <option value="3">검색 및 수집</option>
+      </select>
     </div>
     <div class="form-group">
       <label>설명</label>
       <textarea id="fDesc" placeholder="이 스킬이 언제, 어떻게 사용되는지 설명하세요."></textarea>
     </div>
-
-    <div class="form-section">트리거 & 동작</div>
+    <div class="form-group">
+      <label>상세 내용</label>
+      <textarea id="fDetail" placeholder="스킬의 상세 동작 방식, 단계별 절차 등을 입력하세요." style="min-height:100px"></textarea>
+    </div>
     <div class="form-group">
       <label>트리거 조건</label>
       <textarea id="fTrigger" class="mono-input" placeholder='예: 사용자가 "디버그", "버그 수정" 등을 언급할 때' style="min-height:56px"></textarea>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>유형</label>
-        <select id="fType">
-          <option value="rigid">Rigid (엄격)</option>
-          <option value="flexible">Flexible (유연)</option>
-        </select>
-        <div class="hint">Rigid: 정확히 따름 / Flexible: 맥락 적용</div>
-      </div>
-      <div class="form-group">
-        <label>예상 실행 시간</label>
-        <input type="text" id="fDuration" placeholder="예: 2-5m" />
-      </div>
+    <div class="form-group">
+      <label>유형</label>
+      <select id="fType">
+        <option value="rigid">Rigid (엄격)</option>
+        <option value="flexible">Flexible (유연)</option>
+      </select>
+      <div class="hint">Rigid: 정확히 따름 / Flexible: 맥락 적용</div>
     </div>
     <div class="form-group">
       <label>작성자</label>
@@ -891,8 +880,11 @@
     <div class="detail-grid">
       <div class="detail-item"><label>유형</label><span id="dType"></span></div>
       <div class="detail-item"><label>카테고리</label><span id="dCat"></span></div>
-      <div class="detail-item"><label>예상 시간</label><span id="dDur"></span></div>
       <div class="detail-item"><label>작성자</label><span id="dAuthor"></span></div>
+    </div>
+    <div id="dDetailWrap" style="display:none;margin-top:16px">
+      <div class="trigger-section-label">상세 내용</div>
+      <div id="dDetail" style="white-space:pre-wrap;font-size:14px;color:var(--sbux-text);line-height:1.7"></div>
     </div>
     <div class="trigger-section-label">트리거 조건</div>
     <div class="trigger-block" id="dTrigger"></div>
@@ -1164,7 +1156,6 @@ function renderBoard() {
         <div class="card${tint}" onclick="openDetail(${s.id})">
           <div class="card-top">
             <div class="card-title">${hl(s.title, q)}</div>
-            <div class="card-time">${s.duration}</div>
           </div>
           <div class="card-slug">/${hl(s.slug, q)}</div>
           <div class="card-desc">${hl(s.desc, q)}</div>
@@ -1197,11 +1188,9 @@ function openEditModal() {
   document.querySelector('#modalOverlay .btn-submit').textContent = '수정 저장';
   clearUpload();
   document.getElementById('fTitle').value = s.title;
-  const sf = document.getElementById('fSlug');
-  sf.value = s.slug; sf._touched = true;
   document.getElementById('fDesc').value = s.desc;
+  document.getElementById('fDetail').value = s.detail || '';
   document.getElementById('fTrigger').value = s.trigger;
-  document.getElementById('fDuration').value = s.duration;
   document.getElementById('fAuthor').value = s.author;
   document.getElementById('fType').value = s.type;
   document.getElementById('fCategory').value = s.col;
@@ -1214,12 +1203,6 @@ function closeModal() {
 }
 function handleOverlayClick(e) { if (e.target === e.currentTarget) closeModal(); }
 
-document.getElementById('fTitle').addEventListener('input', function() {
-  const slug = this.value.toLowerCase().replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-');
-  const sf = document.getElementById('fSlug');
-  if (!sf._touched) sf.value = slug;
-});
-document.getElementById('fSlug').addEventListener('input', function() { this._touched = true; });
 
 /* ─── File upload & parse ─────────────────────── */
 function handleDragOver(e) { e.preventDefault(); document.getElementById('uploadZone').classList.add('drag-over'); }
@@ -1240,21 +1223,16 @@ function parseSkillFile(file) {
   reader.onload = (e) => {
     const text = e.target.result;
     const parsed = parseFrontmatter(text);
-    if (parsed.name || parsed.title) {
-      const raw = parsed.name || parsed.title;
-      document.getElementById('fTitle').value = raw;
-      const sf = document.getElementById('fSlug');
-      if (!sf._touched) sf.value = raw.toLowerCase().replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-');
-    }
+    if (parsed.name || parsed.title) document.getElementById('fTitle').value = parsed.name || parsed.title;
     if (parsed.description) document.getElementById('fDesc').value = parsed.description;
     if (parsed.trigger || parsed.when_to_use) document.getElementById('fTrigger').value = parsed.trigger || parsed.when_to_use;
     if (parsed.author) document.getElementById('fAuthor').value = parsed.author;
-    if (parsed.duration) document.getElementById('fDuration').value = parsed.duration;
     if (parsed.type) { const t = parsed.type.toLowerCase(); if (['rigid','flexible'].includes(t)) document.getElementById('fType').value = t; }
     if (!parsed.description && parsed._body) {
       const bl = parsed._body.split('\n').find(l => l.trim() && !l.startsWith('#'));
       if (bl) document.getElementById('fDesc').value = bl.trim().slice(0,200);
     }
+    if (parsed._body) document.getElementById('fDetail').value = parsed._body.trim().slice(0, 2000);
     document.getElementById('uploadFileName').textContent = `${file.name} 파싱 완료`;
     document.getElementById('uploadParsed').classList.add('show');
     document.getElementById('uploadZone').style.display = 'none';
@@ -1281,22 +1259,21 @@ function parseFrontmatter(text) {
 function clearUpload() {
   document.getElementById('uploadParsed').classList.remove('show');
   document.getElementById('uploadZone').style.display = '';
-  ['fTitle','fSlug','fDesc','fTrigger','fDuration','fAuthor'].forEach(id => {
+  ['fTitle','fDesc','fDetail','fTrigger','fAuthor'].forEach(id => {
     document.getElementById(id).value = '';
   });
-  document.getElementById('fSlug')._touched = false;
 }
 
 function submitSkill() {
   const title = document.getElementById('fTitle').value.trim();
-  const slug = document.getElementById('fSlug').value.trim();
-  if (!title || !slug) { alert('스킬 이름과 슬러그를 입력하세요.'); return; }
+  if (!title) { alert('스킬 이름을 입력하세요.'); return; }
+  const slug = title.toLowerCase().replace(/[^a-z0-9\s-]/g,'').trim().replace(/\s+/g,'-') || `skill-${nextId}`;
   const data = {
     title, slug,
     desc: document.getElementById('fDesc').value.trim() || '설명 없음',
+    detail: document.getElementById('fDetail').value.trim(),
     trigger: document.getElementById('fTrigger').value.trim() || '명시적 호출 시',
     type: document.getElementById('fType').value,
-    duration: document.getElementById('fDuration').value.trim() || '-',
     author: document.getElementById('fAuthor').value.trim() || '익명',
     col: parseInt(document.getElementById('fCategory').value),
   };
@@ -1305,10 +1282,8 @@ function submitSkill() {
   } else {
     skills.push({ id: nextId++, ...data });
   }
-  ['fTitle','fSlug','fDesc','fTrigger','fDuration','fAuthor'].forEach(id => {
-    const el = document.getElementById(id);
-    el.value = '';
-    if (id === 'fSlug') el._touched = false;
+  ['fTitle','fDesc','fDetail','fTrigger','fAuthor'].forEach(id => {
+    document.getElementById(id).value = '';
   });
   clearUpload(); closeModal();
   const doSave = () => saveSkillsToGist(doSave).then(ok => { if (ok) renderBoard(); });
@@ -1327,7 +1302,9 @@ function openDetail(id) {
     ? '<span class="type-badge rigid">Rigid</span>'
     : '<span class="type-badge flexible">Flexible</span>';
   document.getElementById('dCat').textContent = COL_NAMES[s.col];
-  document.getElementById('dDur').textContent = s.duration;
+  const detail = s.detail || '';
+  document.getElementById('dDetail').textContent = detail;
+  document.getElementById('dDetailWrap').style.display = detail ? '' : 'none';
   document.getElementById('dAuthor').textContent = s.author;
   document.getElementById('dTrigger').innerHTML =
     `<span class="k">when</span>: <span class="v">"${esc(s.trigger)}"</span>`;
@@ -1344,14 +1321,13 @@ function handleDetailOverlay(e) { if (e.target === e.currentTarget) closeDetail(
 
 /* ─── Download ────────────────────────────────── */
 function buildSkillMd(s) {
-  return [
+  const lines = [
     '---',
     `name: ${s.slug}`,
     `title: ${s.title}`,
     `description: ${s.desc}`,
     `author: ${s.author}`,
     `type: ${s.type}`,
-    `duration: ${s.duration}`,
     `category: ${COL_NAMES[s.col]}`,
     `trigger: "${s.trigger}"`,
     'metadata:',
@@ -1362,6 +1338,9 @@ function buildSkillMd(s) {
     `# ${s.title}`,
     '',
     s.desc,
+  ];
+  if (s.detail) { lines.push('', s.detail); }
+  lines.push(
     '',
     '## When to use',
     '',
@@ -1370,10 +1349,10 @@ function buildSkillMd(s) {
     '## Details',
     '',
     `- **Type**: ${s.type === 'rigid' ? 'Rigid — follow exactly' : 'Flexible — adapt to context'}`,
-    `- **Estimated duration**: ${s.duration}`,
     `- **Author**: ${s.author}`,
     `- **Category**: ${COL_NAMES[s.col]}`,
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
